@@ -36,6 +36,7 @@
 #endif
 #include "EmuInstance.h"
 #include "LuaScript.h"
+#include "LuaScriptInternal.h"
 #include "Config.h"
 #include "Platform.h"
 #include "Net.h"
@@ -1944,6 +1945,9 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
         errorstr = "Failed to load the DS ROM.";
         return false;
     }
+
+    // before the cart is inserted, which may re-encrypt its secure area
+    LuaHost::KeepOriginalROM(this, cart.get());
 
     if (reset)
     {

@@ -92,9 +92,7 @@ These read the cartridge in slot 1. Every function returns nil when no cartridge
 - rom.title() is the 12-character game title from the header, without trailing spaces or padding.
 - rom.path() is the absolute path of the ROM file as melonDS loaded it. For a ROM inside an archive this is the archive's path, and for a compressed .zst ROM it is the compressed file's path.
 - rom.size() is the size of the cartridge image in memory. melonDS pads images up to the next power of two, so this can be larger than the file; for a normal dump it is equal.
-- rom.bytes(offset, n) returns n bytes of the image starting at offset, as a Lua string. A range that does not lie entirely inside the image raises an error. This is served from the copy of the ROM already in memory, so it is much faster than reading the file.
-
-The in-memory image matches the file on disk byte for byte, with one possible exception: if the dump has a decrypted secure area (the first 2 KB of the ARM9 binary, somewhere in 0x4000 to 0x8000, starting with the bytes FF DE FF E7), melonDS re-encrypts those 2 KB when the cartridge is inserted, as a real cartridge would present them. Dumps whose secure area is already encrypted, which is the usual case, are not changed at all.
+- rom.bytes(offset, n) returns n bytes of the ROM as it is on disk, starting at offset, as a Lua string. A range that does not lie entirely inside the image raises an error. It is served from the copy of the ROM already in memory, so it is much faster than readirom.bytes returns exactly the bytes of the ROM file, including the secure area. melonDS itself may change one part of its in-memory copy: if the dump has a decrypted secure area (the first 2 KB of the ARM9 binary, somewhere in 0x4000 to 0x8000, starting with the bytes FF DE FF E7), it re-encrypts those 2 KB when the cartridge is inserted, as a real cartridge would present them. The scripting host keeps the original bytes of that region from before the cartridge was inserted and puts them back in whatever rom.bytes returns, so scripts never see the difference.hanged at all.
 
 ## pad
 

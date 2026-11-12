@@ -42,6 +42,7 @@ class LuaScriptEngine;
 namespace melonDS
 {
 class NDS;
+namespace NDSCart { class CartCommon; }
 }
 
 enum
@@ -132,6 +133,13 @@ struct LuaHost
                                bool touch, int touchX, int touchY);
 
     static QString ROMPath(EmuInstance* inst);
+
+    // Called by EmuInstance::loadROM before the cart is inserted: keeps a copy
+    // of the bytes inserting it may change, so rom.bytes can undo the change.
+    static void KeepOriginalROM(EmuInstance* inst, melonDS::NDSCart::CartCommon* cart);
+    // Copies n bytes of the ROM as it is on disk, starting at offset, into out.
+    static void ReadOriginalROM(EmuInstance* inst, melonDS::NDSCart::CartCommon* cart,
+                                melonDS::u32 offset, melonDS::u32 n, char* out);
     static QStringList HeldKeys(EmuInstance* inst);
 
     static void RequestPause(EmuInstance* inst, bool pause);

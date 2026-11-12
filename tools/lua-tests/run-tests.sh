@@ -147,33 +147,36 @@ fi
 # ---- launch 2: exit handling ----
 # Needs a real window on Windows, since closing politely means WM_CLOSE.
 
-DIR=$(setup exit false)
-if [ "$WINDOWS" = 1 ]; then PLATFORM=windows; else PLATFORM=offscreen; fi
-start "$DIR" $PLATFORM --lua "$HERE/test_exit.lua"
-if wait_for "$DIR/results.txt" 'READY' 30; then
-    sleep 0.5
-    if [ "$WINDOWS" = 1 ]; then
-        taskkill //PID "$(cat /proc/$PID/winpid)" > /dev/null 2>&1
+# LUA_TESTS_SKIP_EXIT=1 skips this launch, to avoid its window while iterating
+if [ -z "${LUA_TESTS_SKIP_EXIT:-}" ]; then
+    DIR=$(setup exit false)
+    if [ "$WINDOWS" = 1 ]; then PLATFORM=windows; else PLATFORM=offscreen; fi
+    start "$DIR" $PLATFORM --lua "$HERE/test_exit.lua"
+    if wait_for "$DIR/results.txt" 'READY' 30; then
+        sleep 0.5
+        if [ "$WINDOWS" = 1 ]; then
+            taskkill //PID "$(cat /proc/$PID/winpid)" > /dev/null 2>&1
+        else
+            kill -TERM "$PID"
+        fi
+        exited=0
+        for ((i = 0; i < 100; i++)); do
+            if ! kill -0 "$PID" 2>/dev/null; then exited=1; break; fi
+            sleep 0.1
+        done
+        if [ $exited = 1 ]; then
+            note "PASS exit: melonDS exits on its own with a runaway script and a stop handler that never returns"
+        else
+            note "FAIL exit: melonDS did not exit within 10 s of being asked to close"
+        fi
     else
-        kill -TERM "$PID"
+        note "FAIL exit: timed out waiting for test_exit.lua"
     fi
-    exited=0
-    for ((i = 0; i < 100; i++)); do
-        if ! kill -0 "$PID" 2>/dev/null; then exited=1; break; fi
-        sleep 0.1
-    done
-    if [ $exited = 1 ]; then
-        note "PASS exit: melonDS exits on its own with a runaway script and a stop handler that never returns"
-    else
-        note "FAIL exit: melonDS did not exit within 10 s of being asked to close"
+    stop_now
+    collect "$DIR" exit
+    if ! grep -q '^DONE exit' "$DIR/results.txt"; then
+        note "FAIL exit: the stop handler did not finish"
     fi
-else
-    note "FAIL exit: timed out waiting for test_exit.lua"
-fi
-stop_now
-collect "$DIR" exit
-if ! grep -q '^DONE exit' "$DIR/results.txt"; then
-    note "FAIL exit: the stop handler did not finish"
 fi
 
 # ---- launches 3 and 4: with a ROM, JIT on and off ----

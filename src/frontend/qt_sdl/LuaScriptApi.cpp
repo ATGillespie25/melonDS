@@ -21,6 +21,8 @@
 
 #include <string.h>
 
+#include <algorithm>
+
 #include <QFileInfo>
 
 #include "LuaScriptInternal.h"
@@ -79,6 +81,44 @@ QString LuaHost::ROMPath(EmuInstance* inst)
     if (inst->loadedROMPath.isEmpty())
         return QString();
     return QFileInfo(inst->loadedROMPath[0]).absoluteFilePath();
+}
+
+void LuaHost::KeepOriginalROM(EmuInstance* inst, NDSCart::CartCommon* cart)
+{
+    // NDSCartSlot::SetCart re-encrypts the first 2 KB of the ARM9 binary when
+    // the binary starts in 0x4000..0x7FFF and the dump has it decrypted. Keep
+    // those bytes as they are in the file. Copying them whatever the dump
+    // holds keeps this independent of the core's exact test.
+    const u8* rom = cart->GetROM();
+    u32 len = cart->GetROMLength();
+    u32 offset = cart->GetHeader().ARM9ROMOffset;
+
+    inst->luaROMOriginal.clear();
+    inst->luaROMOriginalOffset = 0;
+    inst->luaROMImage = rom;
+
+    if (offset >= 0x4000 && offset < 0x8000 && offset + 0x800 <= len)
+    {
+        inst->luaROMOriginal.assign(rom + offset, rom + offset + 0x800);
+        inst->luaROMOriginalOffset = offset;
+    }
+}
+
+void LuaHost::ReadOriginalROM(EmuInstance* inst, NDSCart::CartCommon* cart, u32 offset, u32 n, char* out)
+{
+    const u8* rom = cart->GetROM();
+    memcpy(out, rom + offset, n);
+
+    // the copy only applies to the image it was taken from
+    if (rom != inst->luaROMImage || inst->luaROMOriginal.empty())
+        return;
+
+    u32 start = inst->luaROMOriginalOffset;
+    u32 end = start + (u32)inst->luaROMOriginal.size();
+    u32 from = std::max(offset, start);
+    u32 to = std::min(offset + n, end);
+    if (from < to)
+        memcpy(out + (from - offset), &inst->luaROMOriginal[from - start], to - from);
 }
 
 QStringList LuaHost::HeldKeys(EmuInstance* inst)
@@ -483,7 +523,10 @@ static int ROM_Bytes(lua_State* L)
         return luaL_error(L, "rom.bytes: range 0x%I+%I is outside the ROM (size 0x%I)",
                           (LUAI_UACINT)offset, (LUAI_UACINT)n, (LUAI_UACINT)len);
 
-    lua_pushlstring(L, (const char*)cart->GetROM() + offset, (size_t)n);
+    luaL_Buffer b;
+    char* out = luaL_buffinitsize(L, &b, (size_t)n);
+    LuaHost::ReadOriginalROM(Inst(L), cart, (u32)offset, (u32)n, out);
+    luaL_pushresultsize(&b, (size_t)n);
     return 1;
 }
 

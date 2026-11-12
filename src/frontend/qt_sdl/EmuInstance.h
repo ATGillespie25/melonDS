@@ -390,6 +390,11 @@ private:
     bool luaTouchOverride = false;
     int luaTouchX = 0, luaTouchY = 0;
     QStringList loadedROMPath;
+    // the original bytes of the region NDSCartSlot::SetCart may re-encrypt,
+    // and the ROM image they belong to, so rom.bytes can serve the file as is
+    std::vector<melonDS::u8> luaROMOriginal;
+    melonDS::u32 luaROMOriginalOffset = 0;
+    const melonDS::u8* luaROMImage = nullptr;
 
     friend class EmuThread;
     friend class MainWindow;

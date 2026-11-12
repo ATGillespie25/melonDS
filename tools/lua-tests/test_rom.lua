@@ -101,24 +101,30 @@ local fileSize = fh:seek("end")
 T.info(string.format("ROM file size 0x%X, in-memory image size 0x%X", fileSize, rom.size()))
 T.check("rom.size covers the whole file", rom.size() >= fileSize, rom.size())
 
--- melonDS re-encrypts the 2 KB secure area at the start of the ARM9 binary
--- when a dump has it decrypted (marked by FF DE FF E7 FF DE FF E7)
+-- melonDS re-encrypts the 2 KB secure area at the start of the ARM9 binary in
+-- its in-memory image when a dump has it decrypted (marked by FF DE FF E7 FF
+-- DE FF E7). rom.bytes must still return the file's bytes there.
 local arm9Offset = string.unpack("<I4", rom.bytes(0x20, 4))
 fh:seek("set", arm9Offset)
 local decryptedDump = fh:read(8) == "\xFF\xDE\xFF\xE7\xFF\xDE\xFF\xE7"
-local secureStart, secureEnd = arm9Offset, arm9Offset + 0x800
-T.info(string.format("ARM9 binary at 0x%X; secure area in the file is %s", arm9Offset,
-    decryptedDump and "decrypted, so melonDS re-encrypts it in memory" or "encrypted, so it is left alone"))
+T.info(string.format("ARM9 binary at 0x%X; the secure area in the file is %s", arm9Offset,
+    decryptedDump and "decrypted, so the core re-encrypts it in memory" or "encrypted"))
+
+local function fileBytes(off, n)
+    fh:seek("set", off)
+    return fh:read(n)
+end
 
 for _, off in ipairs({0, 0x200, 0x1000, 0x4000, 0x4800, 0x5000, 0x7800, 0x7FF0, 0x8000, 0x10000, 0x123457, fileSize - 0x100}) do
-    fh:seek("set", off)
-    local fromFile = fh:read(0x100)
-    local same = rom.bytes(off, #fromFile) == fromFile
-    if decryptedDump and off < secureEnd and off + #fromFile > secureStart then
-        T.info(string.format("rom.bytes at 0x%X %s the file (inside the re-encrypted secure area)", off, same and "matches" or "differs from"))
-    else
-        T.check(string.format("rom.bytes matches the file at 0x%X", off), same)
-    end
+    local fromFile = fileBytes(off, 0x100)
+    T.check(string.format("rom.bytes matches the file at 0x%X", off), rom.bytes(off, #fromFile) == fromFile)
+end
+
+-- reads that start before, end inside, start inside, or cover the secure area
+local s0 = arm9Offset
+for _, r in ipairs({{s0 - 0x10, 0x20}, {s0 + 0x7F0, 0x20}, {s0 + 0x100, 0x10}, {s0 - 0x1000, 0x3000}, {s0, 0x800}, {s0 + 0x7FF, 1}}) do
+    T.check(string.format("rom.bytes matches the file for 0x%X+0x%X around the secure area", r[1], r[2]),
+        rom.bytes(r[1], r[2]) == fileBytes(r[1], r[2]))
 end
 
 -- whole-image comparison, reporting differing byte ranges if there are any
@@ -139,7 +145,7 @@ while pos < fileSize do
                     if fromFile:byte(i) ~= fromROM:byte(i) then
                         local s = i
                         while i <= b + m and fromFile:byte(i) ~= fromROM:byte(i) do i = i + 1 end
-                        diffs[#diffs + 1] = {pos + s - 1, pos + i - 2}
+                        diffs[#diffs + 1] = string.format("0x%X..0x%X", pos + s - 1, pos + i - 2)
                     else
                         i = i + 1
                     end
@@ -149,18 +155,7 @@ while pos < fileSize do
     end
     pos = pos + n
 end
-local diffText, outsideSecure = {}, 0
-for _, d in ipairs(diffs) do
-    diffText[#diffText + 1] = string.format("0x%X..0x%X", d[1], d[2])
-    if not (decryptedDump and d[1] >= secureStart and d[2] < secureEnd) then
-        outsideSecure = outsideSecure + 1
-    end
-end
-if #diffs > 0 then
-    T.info("in-memory image differs from the file at " .. table.concat(diffText, ", "))
-end
-T.check("in-memory ROM image matches the file byte for byte outside a re-encrypted secure area",
-    outsideSecure == 0, table.concat(diffText, ", "))
+T.check("rom.bytes matches the whole file byte for byte", #diffs == 0, table.concat(diffs, ", "))
 
 T.check("rom.bytes past the end raises an error", not pcall(rom.bytes, rom.size() - 2, 4))
 T.check("rom.bytes with a negative offset raises an error", not pcall(rom.bytes, -1, 4))
