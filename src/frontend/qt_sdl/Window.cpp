@@ -59,6 +59,7 @@
 #include "RAMInfoDialog.h"
 #include "TitleManagerDialog.h"
 #include "PowerManagement/PowerManagementDialog.h"
+#include "LuaConsoleDialog.h"
 
 #include "Platform.h"
 #include "Config.h"
@@ -408,6 +409,10 @@ MainWindow::MainWindow(int id, EmuInstance* inst, QWidget* parent) :
                 actTitleManager = menu->addAction("Manage DSi titles");
                 connect(actTitleManager, &QAction::triggered, this, &MainWindow::onOpenTitleManager);
             }
+
+            // Stays enabled whether or not a ROM is loaded.
+            actLuaConsole = menu->addAction("&Lua console");
+            connect(actLuaConsole, &QAction::triggered, this, &MainWindow::onOpenLuaConsole);
 
             {
                 menu->addSeparator();
@@ -1693,6 +1698,11 @@ void MainWindow::onDateTimeDialogFinished(int res)
 void MainWindow::onOpenPowerManagement()
 {
     PowerManagementDialog* dlg = PowerManagementDialog::openDlg(this);
+}
+
+void MainWindow::onOpenLuaConsole()
+{
+    LuaConsoleDialog::openDlg(this);
 }
 
 void MainWindow::onEnableCheats(bool checked)
