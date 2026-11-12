@@ -67,6 +67,8 @@ set(SOURCES_QT_SDL
     LuaScriptApi.cpp
     LuaScriptKeys.h
     LuaScriptKeys.cpp
+    LuaScriptSpeech.h
+    LuaScriptSpeech.cpp
     LuaConsoleDialog.h
     LuaConsoleDialog.cpp
 )

@@ -57,6 +57,7 @@
 
 #include "EmuInstance.h"
 #include "LuaScript.h"
+#include "LuaScriptSpeech.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 #include "MPInterface.h"
@@ -445,6 +446,9 @@ int main(int argc, char** argv)
     // if we get here, all the existing emu instances should have been deleted already
     // but with this we make extra sure they are all deleted
     deleteAllEmuInstances();
+
+    // after every emu thread is gone, so no script can still be speaking
+    LuaSpeech::Shutdown();
 
     delete camManager[0];
     delete camManager[1];

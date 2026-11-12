@@ -161,6 +161,7 @@ void LuaOpenPad(lua_State* L);
 void LuaOpenTouch(lua_State* L);
 void LuaOpenInput(lua_State* L);
 void LuaOpenEvent(lua_State* L);
+void LuaOpenSpeech(lua_State* L);
 
 // Engine services used by the API modules.
 melonDS::u64 LuaEngineFrameCount(LuaScriptEngine* engine);
@@ -169,5 +170,7 @@ double LuaEngineClock(LuaScriptEngine* engine);
 int& LuaEnginePendingPause(LuaScriptEngine* engine);
 EmuInstance* LuaEngineInstance(LuaScriptEngine* engine);
 void LuaEngineQueueEvent(LuaScriptEngine* engine, int event);
+// Sends a console message (luaMessage_*) on behalf of a script.
+void LuaEnginePost(LuaScriptEngine* engine, int scriptID, int kind, const QString& text);
 
 #endif // LUASCRIPTINTERNAL_H

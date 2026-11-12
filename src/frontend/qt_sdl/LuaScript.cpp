@@ -70,6 +70,7 @@ const LuaModuleReg kLuaModules[] =
     {"touch", LuaOpenTouch},
     {"input", LuaOpenInput},
     {"event", LuaOpenEvent},
+    {"speech", LuaOpenSpeech},
 };
 
 enum
@@ -868,6 +869,7 @@ double LuaEngineClock(LuaScriptEngine* engine) { return engine->Clock(); }
 int& LuaEnginePendingPause(LuaScriptEngine* engine) { return engine->PendingPause; }
 EmuInstance* LuaEngineInstance(LuaScriptEngine* engine) { return engine->Inst; }
 void LuaEngineQueueEvent(LuaScriptEngine* engine, int event) { engine->QueueEvent(event); }
+void LuaEnginePost(LuaScriptEngine* engine, int scriptID, int kind, const QString& text) { engine->Post(scriptID, kind, text); }
 
 
 // ---- LuaScriptManager ----

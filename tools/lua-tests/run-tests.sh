@@ -17,8 +17,18 @@
 # Without a ROM only the no-ROM tests run. With a ROM, the ROM tests run twice,
 # once with the JIT and once with the interpreter. Every melonDS process is
 # killed as soon as its results are in, or after a timeout.
+#
+# Speech: set LUA_TEST_PRISM_DLL to the path of a prism.dll (from a Prism
+# release) to also run the speech tests that need the library. Those copy it
+# beside a private executable. Only the launch that forces Prism's silent
+# "No Speech" backend ever calls speech.say or speech.stop; no test speaks
+# through a real screen reader or voice. Without LUA_TEST_PRISM_DLL they are
+# reported as skipped.
 
 set -u
+
+# never let an outside setting pick a real speech backend for the tests
+unset MELONDS_SPEECH_BACKEND
 
 if [ $# -lt 1 ]; then
     echo "usage: $0 path/to/melonDS [rom.nds]" >&2
@@ -109,7 +119,7 @@ stop_now() {
 }
 
 collect() {
-    grep -E '^(PASS|FAIL|INFO)' "$1/results.txt" | sed "s/^/[$2] /" >> "$SUMMARY"
+    grep -E '^(PASS|FAIL|SKIP|INFO)' "$1/results.txt" | sed "s/^/[$2] /" >> "$SUMMARY"
 }
 
 # ---- launch 1: no ROM ----
@@ -117,14 +127,21 @@ collect() {
 JIT=false
 DIR=$(setup core false)
 printf 'from the harness\n' > "$DIR/préparé_файл.txt"
-start "$DIR" offscreen --lua "$HERE/test_core.lua" --lua "$HERE/test_error.lua"
+export LUA_TEST_SPEECH=missing
+start "$DIR" offscreen --lua "$HERE/test_core.lua" --lua "$HERE/test_error.lua" --lua "$HERE/test_speech.lua"
 if wait_for "$DIR/results.txt" '^DONE core' 30; then
     wait_for "$DIR/stdout.txt" 'deliberate test error' 5
+    wait_for "$DIR/results.txt" '^DONE speech' 5
 else
     note "FAIL core: timed out waiting for test_core.lua"
 fi
 stop_now
 collect "$DIR" core
+if grep -q 'info\] speech: prism.dll was not found' "$DIR/stdout.txt"; then
+    note "PASS speech: a missing prism.dll is explained once in the console"
+else
+    note "FAIL speech: a missing prism.dll is explained once in the console"
+fi
 
 if [ -f "$DIR/renommé_✓.txt" ]; then
     note "PASS core: the UTF-8 file name is correct on disk"
@@ -142,6 +159,37 @@ else
 fi
 if grep -q 'FAIL error' "$DIR/results.txt"; then
     note "FAIL error: execution continued past the error"
+fi
+
+# ---- speech launches, with prism.dll ----
+
+if [ -n "${LUA_TEST_PRISM_DLL:-}" ]; then
+    for mode in nospeech bogus best; do
+        DIR=$(setup "speech-$mode" false)
+        cp "$LUA_TEST_PRISM_DLL" "$DIR/prism.dll"
+        export LUA_TEST_SPEECH=$mode
+        case $mode in
+            nospeech) export MELONDS_SPEECH_BACKEND="No Speech" ;;
+            bogus) export MELONDS_SPEECH_BACKEND="Nonexistent Backend" ;;
+            best) unset MELONDS_SPEECH_BACKEND ;;
+        esac
+        start "$DIR" offscreen --lua "$HERE/test_speech.lua"
+        if ! wait_for "$DIR/results.txt" '^DONE speech' 30; then
+            note "FAIL speech ($mode): timed out waiting for test_speech.lua"
+        fi
+        stop_now
+        unset MELONDS_SPEECH_BACKEND
+        collect "$DIR" "speech $mode"
+        if [ $mode = bogus ]; then
+            if grep -q "info\] speech: MELONDS_SPEECH_BACKEND names 'Nonexistent Backend'" "$DIR/stdout.txt"; then
+                note "PASS speech: an unknown MELONDS_SPEECH_BACKEND is explained in the console"
+            else
+                note "FAIL speech: an unknown MELONDS_SPEECH_BACKEND is explained in the console"
+            fi
+        fi
+    done
+else
+    note "SKIP speech: tests that need prism.dll -- LUA_TEST_PRISM_DLL is not set"
 fi
 
 # ---- launch 2: exit handling ----
@@ -204,8 +252,9 @@ if [ -n "$ROM" ]; then
 fi
 
 echo
-echo "Passed: $(grep -c 'PASS' "$SUMMARY"), failed: $(grep -c 'FAIL' "$SUMMARY")"
+echo "Passed: $(grep -c 'PASS' "$SUMMARY"), failed: $(grep -c 'FAIL' "$SUMMARY"), skipped: $(grep -c 'SKIP' "$SUMMARY")"
 grep 'FAIL' "$SUMMARY"
+grep 'SKIP' "$SUMMARY"
 grep 'INFO' "$SUMMARY"
 echo "Full results in $WORK"
 

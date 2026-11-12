@@ -1,6 +1,6 @@
 # melonDS Lua scripting API
 
-This is a reference for people writing Lua scripts for this build of melonDS. Scripts are Lua 5.4 (the full language and standard libraries) plus a handful of global tables that let them watch and drive the emulator: emu, mem, rom, pad, touch, input and event.
+This is a reference for people writing Lua scripts for this build of melonDS. Scripts are Lua 5.4 (the full language and standard libraries) plus a handful of global tables that let them watch and drive the emulator: emu, mem, rom, pad, touch, input, event and speech.
 
 ## Security
 
@@ -168,6 +168,25 @@ event.off(handle)
 Removes a callback. Returns true if the handle was registered, false otherwise.
 
 Callbacks run in their own coroutine, separate from the main chunk, and may run while the main chunk is suspended in emu.frameadvance() or emu.yield(). They cannot call emu.frameadvance() or emu.yield() and must not yield. An error in a callback stops the whole script.
+
+## speech
+
+speech.say(text, interrupt)
+Speaks text through the user's screen reader if one is running (NVDA, JAWS and others), otherwise through a system voice. With interrupt true, or left out, it cuts off whatever is being spoken first; with interrupt false it queues behind it (screen readers decide for themselves how far they honour queueing). The text is passed on unchanged as UTF-8. Returns true if the text was handed to a speech backend, false otherwise. A number is accepted and converted to text; anything else, or no argument, raises an argument error.
+
+speech.stop()
+Silences speech in progress. Returns true on success, false when speech is unavailable or the backend cannot stop.
+
+speech.available()
+Returns true and the name of the backend in use (such as "NVDA" or "SAPI"), or false when speech is unavailable.
+
+None of these ever raise an error because speech is missing: when it is unavailable, say and stop simply do nothing and return false, and the first call prints one notice in the Lua console saying why. All scripts in all instances share one speech backend, and calls from different instances are serialised.
+
+If a screen reader is started or closed while melonDS runs, speech switches to the best backend now available on the next call: Prism watches for this in the background, and a failed speak also triggers a fresh choice and one retry.
+
+Speech uses Prism (https://github.com/ethindp/prism), and is available on Windows only for now; elsewhere speech.available() is false. melonDS does not include Prism. To enable speech, take prism.dll from the dynamic/release/bin folder of a Prism release for Windows x64 and put it beside melonDS.exe, together with the licence notices from the release's LICENSES folder (Prism is under the Mozilla Public License 2.0, and it bundles code under other licences listed there). melonDS loads it only from the folder containing melonDS.exe, and runs normally without it.
+
+To force a particular backend instead of the automatic choice, set the environment variable MELONDS_SPEECH_BACKEND to the backend's Prism name before starting melonDS, for example "SAPI", "OneCore", "NVDA" or "JAWS" (names are case-sensitive). The automatic switching described above is then turned off. If the name is not one this prism.dll knows, speech is unavailable, and the console notice lists the names it does know. The release builds checked so far do not include Prism's silent "No Speech" test backend.
 
 ## Timing notes
 

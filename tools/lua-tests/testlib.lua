@@ -33,6 +33,10 @@ function M.check(name, cond, detail)
     return cond
 end
 
+function M.skip(name, why)
+    emit("SKIP " .. suite .. ": " .. name .. " -- " .. why)
+end
+
 function M.info(text)
     emit("INFO " .. suite .. ": " .. text)
 end
