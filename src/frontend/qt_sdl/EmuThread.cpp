@@ -54,6 +54,7 @@
 #include "Savestate.h"
 
 #include "EmuInstance.h"
+#include "LuaScript.h"
 
 using namespace melonDS;
 
@@ -152,6 +153,8 @@ void EmuThread::run()
 
     while (emuStatus != emuStatus_Exit)
     {
+        emuInstance->luaManager->onLoopPass();
+
         if (emuInstance->instanceID == 0)
             MPInterface::Get().Process();
 
@@ -252,9 +255,12 @@ void EmuThread::run()
             }
 
             // process input and hotkeys
+            emuInstance->luaManager->onFrameStart();
             emuInstance->nds->SetKeyMask(emuInstance->inputMask);
 
-            if (emuInstance->isTouching)
+            if (emuInstance->luaTouchOverride)
+                emuInstance->nds->TouchScreen(emuInstance->luaTouchX, emuInstance->luaTouchY);
+            else if (emuInstance->isTouching)
                 emuInstance->nds->TouchScreen(emuInstance->touchX, emuInstance->touchY);
             else
                 emuInstance->nds->ReleaseScreen();
@@ -309,6 +315,7 @@ void EmuThread::run()
             else
             {
                 nlines = emuInstance->nds->RunFrame();
+                emuInstance->luaManager->onFrameEnd();
             }
 
             if (emuInstance->ndsSave)
@@ -437,13 +444,16 @@ void EmuThread::run()
             snprintf(melontitle, sizeof(melontitle), "melonDS " MELONDS_VERSION);
             changeWindowTitle(melontitle);
 
-            SDL_Delay(75);
+            // shorter while scripts run, so their paused hotkeys stay responsive
+            SDL_Delay(emuInstance->luaManager->hasActiveScripts() ? 10 : 75);
 
             emuInstance->drawScreen();
         }
 
         handleMessages();
     }
+
+    emuInstance->luaManager->shutdown();
 }
 
 void EmuThread::sendMessage(Message msg)
@@ -548,6 +558,7 @@ void EmuThread::handleMessages()
             emuInstance->audioEnable();
             emit windowEmuReset();
             emuInstance->osdAddMessage(0, "Reset");
+            emuInstance->luaManager->onReset();
             break;
 
         case msg_InitGL:
@@ -574,6 +585,7 @@ void EmuThread::handleMessages()
             assert(emuInstance->nds != nullptr);
             emuInstance->nds->Start();
             msgResult = 1;
+            emuInstance->luaManager->onROMChanged();
             break;
 
         case msg_BootFirmware:
@@ -584,6 +596,7 @@ void EmuThread::handleMessages()
             assert(emuInstance->nds != nullptr);
             emuInstance->nds->Start();
             msgResult = 1;
+            emuInstance->luaManager->onROMChanged();
             break;
 
         case msg_InsertCart:
@@ -592,10 +605,12 @@ void EmuThread::handleMessages()
                 break;
 
             msgResult = 1;
+            emuInstance->luaManager->onROMChanged();
             break;
 
         case msg_EjectCart:
             emuInstance->ejectCart();
+            emuInstance->luaManager->onROMChanged();
             break;
 
         case msg_InsertGBACart:
@@ -622,11 +637,13 @@ void EmuThread::handleMessages()
 
         case msg_LoadState:
             msgResult = emuInstance->loadState(msg.param.value<QString>().toStdString());
+            if (msgResult) emuInstance->luaManager->onStateLoaded();
             break;
 
         case msg_UndoStateLoad:
             emuInstance->undoStateLoad();
             msgResult = 1;
+            emuInstance->luaManager->onStateLoaded();
             break;
 
         case msg_ImportSavefile:
@@ -654,7 +671,8 @@ void EmuThread::handleMessages()
             break;
         }
 
-        msgSemaphore.release();
+        if (!msg.noReply)
+            msgSemaphore.release();
     }
     msgMutex.unlock();
 
@@ -736,6 +754,8 @@ void EmuThread::emuStop(bool external)
 
 void EmuThread::emuExit()
 {
+    // interrupt any script stuck in a loop, or the exit message is never handled
+    emuInstance->luaManager->stopAll();
     sendMessage(msg_Exit);
     waitAllMessages();
 }

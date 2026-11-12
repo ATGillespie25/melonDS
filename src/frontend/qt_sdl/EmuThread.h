@@ -90,6 +90,8 @@ public:
     {
         MessageType type;
         QVariant param;
+        // set when sent from the emu thread itself, which never waits for a reply
+        bool noReply = false;
     };
 
     void sendMessage(Message msg);

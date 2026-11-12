@@ -20,6 +20,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <string.h>
+#include <locale.h>
 
 #include <optional>
 #include <string>
@@ -55,6 +56,7 @@
 #include "Config.h"
 
 #include "EmuInstance.h"
+#include "LuaScript.h"
 #include "ArchiveUtil.h"
 #include "CameraManager.h"
 #include "MPInterface.h"
@@ -329,6 +331,14 @@ int main(int argc, char** argv)
     MelonApplication melon(argc, argv);
     pathInit();
 
+#ifdef _WIN32
+    // Make the C runtime treat narrow strings as UTF-8, so Lua scripts can pass
+    // UTF-8 paths with non-ASCII characters to io.open, require, os.remove and
+    // friends. Only the character type category changes, so number formatting
+    // keeps its '.' decimal point. Needs the Universal CRT.
+    setlocale(LC_CTYPE, ".UTF8");
+#endif
+
     CLI::CommandLineOptions* options = CLI::ManageArgs(melon);
 
     // http://stackoverflow.com/questions/14543333/joystick-wont-work-using-sdl
@@ -419,6 +429,10 @@ int main(int argc, char** argv)
         if (memberSyntaxUsed) printf("Warning: use the a.zip|b.nds format at your own risk!\n");
 
         win->preloadROMs(dsfile, gbafile, options->boot);
+
+        // after the ROM, so these scripts start with the game already loaded
+        for (const QString& path : options->luaScripts)
+            emuInstances[0]->getLuaManager()->loadScript(path);
 
         if (options->fullscreen)
             win->toggleFullscreen();

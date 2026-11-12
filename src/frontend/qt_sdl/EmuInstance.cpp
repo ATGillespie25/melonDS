@@ -133,6 +133,8 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
     net.RegisterInstance(instanceID);
 
     luaManager = new LuaScriptManager(this);
+    for (const QString& path : luaManager->autoloadScripts())
+        luaManager->loadScript(path);
 
     emuThread = new EmuThread(this);
 
@@ -239,6 +241,11 @@ void EmuInstance::deleteWindow(int id, bool close)
 
     MainWindow* win = windowList[id];
     if (!win) return;
+
+    // closing the last window shuts the instance down; interrupt any script
+    // stuck in a loop first, or the emu thread never answers the waits below
+    if (numWindows == 1 || deleting)
+        luaManager->stopAll();
 
     if (win->hasOpenGL())
         emuThread->deinitContext(id);
@@ -1885,6 +1892,7 @@ bool EmuInstance::loadROM(QStringList filepath, bool reset, QString& errorstr)
     baseROMDir = basepath;
     baseROMName = romname;
     baseAssetName = romname.substr(0, romname.rfind('.'));
+    loadedROMPath = filepath;
 
     u32 savelen = 0;
     std::unique_ptr<u8[]> savedata = nullptr;
@@ -1998,6 +2006,7 @@ void EmuInstance::ejectCart()
     baseROMDir = "";
     baseROMName = "";
     baseAssetName = "";
+    loadedROMPath.clear();
 }
 
 bool EmuInstance::cartInserted()

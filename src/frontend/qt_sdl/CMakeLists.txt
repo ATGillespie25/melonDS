@@ -63,6 +63,10 @@ set(SOURCES_QT_SDL
 
     LuaScript.h
     LuaScript.cpp
+    LuaScriptInternal.h
+    LuaScriptApi.cpp
+    LuaScriptKeys.h
+    LuaScriptKeys.cpp
     LuaConsoleDialog.h
     LuaConsoleDialog.cpp
 )

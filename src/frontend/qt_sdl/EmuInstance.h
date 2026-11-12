@@ -28,8 +28,10 @@
 #include "Window.h"
 #include "Config.h"
 #include "SaveManager.h"
+#include "LuaScriptKeys.h"
 
 class LuaScriptManager;
+struct LuaHost;
 
 const int kMaxWindows = 4;
 
@@ -382,8 +384,16 @@ private:
     bool isTouching;
     melonDS::u16 touchX, touchY;
 
+    // Lua scripting: held host keys, the script touch override applied in
+    // place of physical touch, and the ROM path as given to loadROM
+    LuaKeyTracker luaKeys;
+    bool luaTouchOverride = false;
+    int luaTouchX = 0, luaTouchY = 0;
+    QStringList loadedROMPath;
+
     friend class EmuThread;
     friend class MainWindow;
+    friend struct LuaHost;
 };
 
 #endif //EMUINSTANCE_H
