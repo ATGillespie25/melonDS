@@ -29,6 +29,8 @@
 #include "Config.h"
 #include "SaveManager.h"
 
+class LuaScriptManager;
+
 const int kMaxWindows = 4;
 
 enum
@@ -90,6 +92,7 @@ public:
     int getInstanceID() { return instanceID; }
     int getConsoleType() { return consoleType; }
     EmuThread* getEmuThread() { return emuThread; }
+    LuaScriptManager* getLuaManager() { return luaManager; }
     melonDS::NDS* getNDS() { return nds; }
 
     MainWindow* getMainWindow() { return mainWindow; }
@@ -266,6 +269,7 @@ private:
     int instanceID;
 
     EmuThread* emuThread;
+    LuaScriptManager* luaManager;
 
     MainWindow* mainWindow;
     MainWindow* windowList[kMaxWindows];

@@ -35,6 +35,7 @@
 #include "ArchiveUtil.h"
 #endif
 #include "EmuInstance.h"
+#include "LuaScript.h"
 #include "Config.h"
 #include "Platform.h"
 #include "Net.h"
@@ -131,6 +132,8 @@ EmuInstance::EmuInstance(int inst) : deleting(false),
 
     net.RegisterInstance(instanceID);
 
+    luaManager = new LuaScriptManager(this);
+
     emuThread = new EmuThread(this);
 
     numWindows = 0;
@@ -162,6 +165,9 @@ EmuInstance::~EmuInstance()
     emuThread->wait();
     delete emuThread;
     emuThread = nullptr;
+
+    delete luaManager;
+    luaManager = nullptr;
 
     net.UnregisterInstance(instanceID);
 

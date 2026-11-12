@@ -60,6 +60,11 @@ set(SOURCES_QT_SDL
 
     LANDialog.cpp
     NetplayDialog.cpp
+
+    LuaScript.h
+    LuaScript.cpp
+    LuaConsoleDialog.h
+    LuaConsoleDialog.cpp
 )
 
 option(USE_QT6 "Use Qt 6 instead of Qt 5" ON)
@@ -98,6 +103,11 @@ add_subdirectory("../../net"
     ${CMAKE_BINARY_DIR}/net)
 
 target_link_libraries(melonDS PRIVATE net-utils)
+
+add_subdirectory("../lua"
+    ${CMAKE_BINARY_DIR}/lua)
+
+target_link_libraries(melonDS PRIVATE lua54)
 
 if (WIN32)
     target_link_libraries(melonDS PUBLIC opengl32)
