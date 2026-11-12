@@ -120,7 +120,7 @@ Like pad overrides, touch overrides belong to the script and are dropped when it
 ## input
 
 input.keys()
-Returns a table of every keyboard key currently held down in this instance's windows, as name to true, whether or not the key is mapped to anything in melonDS. Key repeat is ignored. It keeps working while the emulator is paused, so a script can implement its own hotkeys with emu.yield(). All keys are considered released when melonDS loses focus to another application.
+Returns a table of every keyboard key currently held down in this instance's windows, as name to true, whether or not the key is mapped to anything in melonDS. Key repeat is ignored. It keeps working while the emulator is paused, so a script can implement its own hotkeys with emu.yield(). All keys are considered released whenever a melonDS window loses keyboard focus, whether to another application or to another melonDS window such as the Lua console, because the key releases would go to the other window.
 
 Key names:
 

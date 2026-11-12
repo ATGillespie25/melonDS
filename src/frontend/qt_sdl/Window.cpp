@@ -1037,7 +1037,11 @@ void MainWindow::onFocusOut()
     // prevent use after free
     focused = false;
     if (emuInstance)
+    {
+        // key releases go to whichever window has focus now, so forget held keys
+        emuInstance->keyReleaseAll();
         emuInstance->updateAudioMuteByWindowFocus();
+    }
 }
 
 void MainWindow::onAppStateChanged(Qt::ApplicationState state)
