@@ -184,12 +184,15 @@ fi
 if [ -n "$ROM" ]; then
     for JIT in true false; do
         DIR=$(setup "rom-jit-$JIT" $JIT)
-        start "$DIR" offscreen --lua "$HERE/test_rom.lua" --lua "$HERE/test_cberror.lua" "$ROM"
+        start "$DIR" offscreen --lua "$HERE/test_rom.lua" --lua "$HERE/test_cberror.lua" --lua "$HERE/test_nohook.lua" "$ROM"
         if ! wait_for "$DIR/results.txt" '^DONE rom' 120; then
             note "FAIL rom (jit $JIT): timed out waiting for test_rom.lua"
         fi
         stop_now
         collect "$DIR" "rom jit=$JIT"
+        if ! grep -q '^DONE nohook' "$DIR/results.txt"; then
+            note "FAIL nohook (jit $JIT): test_nohook.lua did not finish"
+        fi
 
         if grep -q "error\] .*test_cberror.lua:15: attempt to index a nil value" "$DIR/stdout.txt" \
             && grep -q "stack traceback:" "$DIR/stdout.txt"; then

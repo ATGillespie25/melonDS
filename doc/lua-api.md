@@ -44,7 +44,18 @@ An uncaught error in the main chunk or in any event callback stops the script. T
 
 A script can be stopped from the console at any time, even when it is stuck in an endless loop that never yields: the host checks for a stop request every thousand Lua instructions and breaks out of the loop, including through any pcall. When a script is stopped on request, or when melonDS exits, its stop event handlers run first. They get about one second in total; handlers still running after that are cut off. Then its overrides are dropped and its state is closed.
 
-The check that makes runaway scripts stoppable costs some speed in tight pure-Lua loops (see the timing notes at the end). A script can remove it for a coroutine of its own with debug.sethook(co), at the price of that coroutine no longer being interruptible.
+### The cost of the stop check, and opting out
+
+The stop check is a Lua count hook, and while any count hook is installed Lua 5.4 does a little extra work on every instruction, however rarely the hook itself runs. Tight pure-Lua loops (arithmetic, comparisons, local variable shuffling) run roughly twice as slowly with it; see the timing notes at the end. Code that mostly calls host functions such as mem.u32, or library functions such as string.format and table.concat, pays much less, because time spent inside C functions is not affected.
+
+A script that needs the speed can remove the check by calling debug.sethook() with no arguments at the top of its main chunk. Tested behaviour:
+
+- It removes the check from the main coroutine.
+- Coroutines created afterwards from the main coroutine (or from coroutines that themselves have no hook) start without it, because a new coroutine copies the hook of the coroutine that creates it.
+- Coroutines created before the call keep the check.
+- Event callbacks keep the check, since they run on a separate coroutine the host creates, and so do coroutines created inside callbacks.
+
+The price: a runaway loop in the main coroutine, or in a coroutine created after the call, can then no longer be stopped from the console, nor by closing melonDS; the only way out is to kill the melonDS process. debug.sethook(co) with a coroutine argument removes the check from just that coroutine.
 
 ## emu
 
